@@ -12,20 +12,16 @@ library(shinythemes)
 
 
 # Load data sets
-results_FindN2_IU <- readRDS("data/results_FindN2_IU.RDS")
-results_FindN2_omni <- readRDS("data/results_FindN2_omni.RDS")
-results_FindN2_homoge <- readRDS("data/results_FindN2_homoge.RDS")
+results_iu <- readRDS("data/results_iu.RDS")
+results_omni <- readRDS("data/results_omni.RDS")
+results_homog <- readRDS("data/results_homog.RDS")
 
-results_FindN2_IU_plot <- readRDS("data/results_FindN2_IU.RDS")
-results_FindN2_omni_plot <- readRDS("data/results_FindN2_omni.RDS")
-results_FindN2_homoge_plot <- readRDS("data/results_FindN2_homoge.RDS")
+results_iu_plot <- readRDS("data/results_FindN2_IU.RDS")
+results_omni_plot <- readRDS("data/results_FindN2_omni.RDS")
+results_homog_plot <- readRDS("data/results_FindN2_homoge.RDS")
 
 # Names of columns 
-names_columns <- c("Cluster size" = "n1", "Number of clusters" = "n2", 
-"P(PMP.H1 > threshold)" = "eta.PMP1", "P(PMP.H2 > threshold)" = "eta.PMP2", "P(PMP.H3 > threshold)" = "eta.PMP3", "P(PMP.H4 > threshold)" = "eta.PMP4")
-
-
-
+names_columns <- c("Cluster size" = "n1", "Number of clusters" = "n2")
 
 # Define UI =============================================================
 ui <- fluidPage(
@@ -123,8 +119,11 @@ ui <- fluidPage(
                                                        "Treatment effects (outcome 1 and outcome 2",
                                                        choices = list("0.3 and 0.2" = 0.3,
                                                                       "0.6 and 0.5" = 0.6,
-                                                                      "0.9 and 0.8" = 0.9)))
-                     )
+                                                                      "0.9 and 0.8" = 0.9)),
+                                          selectInput("delta", "Difference",
+                                                      choices = list("0.2" = 0.2, "0.3" = 0.3,)))
+                     ),
+                     actionButton("go", "Determine")
                  ),
                  # Show a plot of the generated distribution
                  mainPanel(
@@ -175,23 +174,21 @@ ui <- fluidPage(
 server <- function(input, output) {
     
     # Select dataset
-    dataset <- reactive({
-        switch(input$test,
-               iu = results_FindN2_IU,
-               omnibus = results_FindN2_omni,
-               homgeneity = results_FindN2_homoge)
-    })
+    dataset <- eventReactive(input$go, {
+        dataset_tb <- switch(input$test,
+               iu = results_iu,
+               omnibus = results_omni,
+               homgeneity = results_homog)
     
     # Filter dataset based on ICCs, n1, and threshold
-    filtered_data <- reactive({
-        filtered <- dataset() %>% filter(n1 == as.numeric(input$n1), 
+    filtered_data <- dataset_tb() %>% filter(n1 == as.numeric(input$n1), 
         rho0 == as.numeric(input$rho0),
         rho1 == as.numeric(input$rho1),
         rho2 == as.numeric(input$rho2),
         pmp == as.numeric(input$pmp))
-    })
+
     
-    # Filter effect sizes
+    # Filter effect sizes and delta
     second_filter <- reactive({
         if (input$test == "iu") {
             filtered <- filtered_data() %>% filter(eff_size1 == as.numeric(input$outcome1),
@@ -202,27 +199,104 @@ server <- function(input, output) {
             eff_size2 == as.numeric(input$outcome2)
            )} else {
             filtered <- filtered_data %>% filter(
-                eff_size1 == as.numeric(input$outcome1)
+                eff_size1 == as.numeric(input$outcome1),
+                delta == as.numeric(input$delta)
             )
            }
         }
     )
+    return(second_filter)
+    })
 
     # Give format to table and render
+    hypotheses <- c("H1", "H2", "H3", "H4")
+    
     output$tablePMP <- renderTable({
         if (input$test == "iu") {
-            second_filter() %>% select(eta.PMP1, eta.PMP2, eta.PMP3, eta.PMP4) %>% rename(any_of(names_columns))
+            data1 <- dataset() %>% 
+                select(all_of(c("eta.PMP1", "eta.PMP2", "eta.PMP3", "eta.PMP4"))) %>% 
+                pivot_longer(cols = everything(),
+                             values_to = "P(PMP.H > threshold)") %>% 
+                mutate(Hypothesis = hypotheses, .before = 1)
+            data2 <- dataset() %>% 
+                select(all_of(c("mean.PMP1", "mean.PMP2", "mean.PMP3", "mean.PMP4"))) %>% 
+                pivot_longer(cols = everything(), values_to = "Error") %>% 
+                mutate(Error = 1 - Error)
+            bind_cols(data1, data2)
         } else if (input$test == "omnibus") {
-            second_filter() %>% select(eta.PMP1, eta.PMP2, eta.PMP3, eta.PMP4) %>% rename(any_of(names_columns))
+            data1 <- dataset() %>% 
+                select(all_of(c("eta.PMP1", "eta.PMP2", "eta.PMP3", "eta.PMP4"))) %>% 
+                pivot_longer(cols = everything(),
+                             values_to = "P(PMP.H > threshold)") %>% 
+                mutate(Hypothesis = hypotheses, .before = 1)
+            data2 <- dataset() %>% 
+                select(all_of(c("mean.PMP1", "mean.PMP2", "mean.PMP3", "mean.PMP4"))) %>% 
+                pivot_longer(cols = everything(), values_to = "Error") %>% 
+                mutate(Error = 1 - Error)
+            bind_cols(data1, data2)
         } else {
-            second_filter() %>% select(eta.PMP1, eta.PMP2) %>% rename(any_of(names_columns))
+            data1 <- dataset() %>% 
+                select(all_of(c("eta.PMP1", "eta.PMP2"))) %>% 
+                pivot_longer(cols = everything(),
+                             values_to = "P(PMP.H > threshold)") %>% 
+                mutate(Hypothesis = hypotheses[1:2], .before = 1)
+            data2 <- dataset() %>% 
+                select(all_of(c("mean.PMP1", "mean.PMP2"))) %>% 
+                pivot_longer(cols = everything(), values_to = "Error") %>% 
+                mutate(Error = 1 - Error)
+            bind_cols(data1, data2)
         }},
+        
     # Make pretty table
-    striped = TRUE, spacing = "l", digits = 3, width = "90%"
+    striped = TRUE, spacing = "l", digits = 3, width = "90%", align = "c"
     )
-    # Make plot
     
+    
+    # Make plot
     ## Select dataset and filter data
+    dataset_pl <- eventReactive(input$go, {
+        dataset_ <- switch(input$test,
+                             iu = results_iu,
+                             omnibus = results_omni,
+                             homgeneity = results_homog)
+        
+        # Filter dataset based on ICCs, n1, and threshold
+        filtered_data <- dataset_() %>% filter(n1 == as.numeric(input$n1), 
+                                                 rho0 == as.numeric(input$rho0),
+                                                 rho1 == as.numeric(input$rho1),
+                                                 rho2 == as.numeric(input$rho2),
+                                                 pmp == as.numeric(input$pmp))
+        
+        
+        # Filter effect sizes and delta
+        second_filter <- reactive({
+            if (input$test == "iu") {
+                filtered <- filtered_data() %>% filter(eff_size1 == as.numeric(input$outcome1),
+                                                       eff_size2 == as.numeric(input$outcome2))
+            } else if (input$test == "omnibus") {
+                filtered <- filtered_data() %>% filter(
+                    eff_size1 == as.numeric(input$outcome1),
+                    eff_size2 == as.numeric(input$outcome2)
+                )} else {
+                    filtered <- filtered_data %>% filter(
+                        eff_size1 == as.numeric(input$outcome1),
+                        delta == as.numeric(input$delta)
+                    )
+                }
+        }
+        )
+        return(second_filter)
+    })
+    
+    # Make 
+    output$plot <- renderPlot({
+        # Draw plot
+        if (input$test == "iu") {
+            data_plot <- dataset_pl
+        }
+    })
+    
+    
     
     output$distPlot <- renderPlot({
         # generate bins based on input$bins from ui.R
