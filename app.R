@@ -1,0 +1,240 @@
+################################################################################
+#Sample Size Determination for Multivariate Cluster Randomised Trial      #
+################################################################################
+
+# Libraries
+library(shiny)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(shiny)
+library(shinythemes)
+
+
+# Load data sets
+results_FindN2_IU <- readRDS("data/results_FindN2_IU.RDS")
+results_FindN2_omni <- readRDS("data/results_FindN2_omni.RDS")
+results_FindN2_homoge <- readRDS("data/results_FindN2_homoge.RDS")
+
+results_FindN2_IU_plot <- readRDS("data/results_FindN2_IU.RDS")
+results_FindN2_omni_plot <- readRDS("data/results_FindN2_omni.RDS")
+results_FindN2_homoge_plot <- readRDS("data/results_FindN2_homoge.RDS")
+
+# Names of columns 
+names_columns <- c("Cluster size" = "n1", "Number of clusters" = "n2", 
+"P(PMP.H1 > threshold)" = "eta.PMP1", "P(PMP.H2 > threshold)" = "eta.PMP2", "P(PMP.H3 > threshold)" = "eta.PMP3", "P(PMP.H4 > threshold)" = "eta.PMP4")
+
+
+
+
+# Define UI =============================================================
+ui <- fluidPage(
+    
+    # Application title
+    titlePanel("Sample Size Determination for Bayesian Hypothesis Testing in
+               Cluster Randomised Trial"),
+    
+    # Sidebar with a slider input for number of bins 
+    tabsetPanel(
+        tabPanel("Results",
+                 sidebarLayout(
+                     sidebarPanel(
+                         selectInput("test",
+                                     "Type of test:",
+                                     choices = list("Intersection-union" = "iu",
+                                                    "Omnibus" = "omnibus",
+                                                    "Homogeneity of treatment effects" = "homogeneity")),
+                         sliderInput("n1",
+                                     "Clsuter size",
+                                     choices = list("5" = 5, "15" = 15, "30" = 30)),
+                         selectInput("rho0",
+                                     "Outcome-specific ICC for outcome 1",
+                                     choices = list("0.01" = 0.01, "0.05" = 0.05)
+                         ),
+                         selectInput("rho1",
+                                     "Intersubject between-outcome ICC",
+                                     choices = list("0.005" = 0.005, "0.025" = 0.025)
+                         ),
+                         selectInput("rho2",
+                                     "Intrasubject between-outcome ICC",
+                                     choices = list("0.02" = 0.02, "0.05" = 0.05)
+                         ),
+                         selectInput("pmp",
+                                     "Posterior Model Probability threshold",
+                                     choices = list(0.9, 0.95)),
+                         conditionalPanel(
+                             condition = "input.test == 'iu'",
+                             sliderInput("outcome1",
+                                         "Treatment effect in outcome 1",
+                                         choices = list("0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7)
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.3'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.5'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.7" = 0.7, "0.9" = 0.9))
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.7'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.9" = 0.9))
+                             )
+                             
+                         ),
+                         conditionalPanel(
+                             condition = "input.test == 'omnibus'",
+                             sliderInput("outcome1",
+                                         "Treatment effect in outcome 1", 
+                                         choices = list("0.2" = 0.2, "0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7)
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.2'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.3'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.5'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.7" = 0.7, "0.9" = 0.9))
+                             ),
+                             conditionalPanel(
+                                 condition = "input.outcome1 == '0.7'",
+                                 selectInput(
+                                     "Treatment effect in outcome 2",
+                                     choices = list("0.9" = 0.9))
+                             )),
+                         conditionalPanel(condition = "input.test == 'homogeneity'",
+                                          radioButtons("outcome1",
+                                                       "Treatment effects (outcome 1 and outcome 2",
+                                                       choices = list("0.3 and 0.2" = 0.3,
+                                                                      "0.6 and 0.5" = 0.6,
+                                                                      "0.9 and 0.8" = 0.9)))
+                     )
+                 ),
+                 # Show a plot of the generated distribution
+                 mainPanel(
+                     #Plot
+                     plotOutput("distPlot"),
+                     # Tables
+                     h3("Final Sample Size"),
+                     ## Table with PMP
+                     tableOutput("tablePMP"),
+                     ## Table wit median BF
+                     tableOutput("tableBF"),
+                     # Text
+                     uiOutput("interpretation")
+                 )
+                 
+        ),
+        tabPanel("Information",
+                 #TODO: Change this with the correct reference
+                 p(HTML("This Shiny app display the result from the research 
+                                <i><a href='https://www.overleaf.com/project/65f16c0441556b4e4487bc30' 
+                        target='_blank'>Method for Sample Size Determination for Cluster Randomized Trials Using the Bayes Factor</a></i> by Barragan et al. (2024).  
+                                The source code is available at <i><a 
+                                href='https://github.com/cnbi/Bayesian-Sample-Size-Determination-CRT' 
+                        target='_blank'>Bayesian Sample Size Determination-CRT</a></i>")),
+                 p("To reference the application, please use the following:"),
+                 p(HTML("@misc{barragan_sample_2024,
+	title = {Sample size determination for cluster randomised trials with the Bayes factor}, <br>
+	shorttitle = {Bayes sample size determination: CRT}, <br>
+	url = {https://utrecht-university.shinyapps.io/BayesSamplSizeDet-CRT/}, <br>
+	publisher = {Utrecht University}, <br>
+	author = {Barragan, Camila and Moerbeek, Mirjam and Hoijtink, Herbert}, <br>
+	month = apr, <br>
+	year = {2024}, <br>
+}
+                        ")),
+                 p("Or in APA style:"),
+                 p(HTML("Barragan, C., Moerbeek, M., & Hoijtink, H. (2024). 
+                          <i>Sample size determination for cluster randomised trials 
+                          with the Bayes factor </i> [Shiny app]. Utrecht University. 
+                          https://utrecht-university.shinyapps.io/BayesSamplSizeDet-CRT/")
+                 ),
+                 p("For any bug, error, or feedback you may contact Camila Barragán via email at cn.barragan.ibanez@gmail.com or GitHub")
+        )
+    )
+)
+
+# Server ========================================================
+server <- function(input, output) {
+    
+    # Select dataset
+    dataset <- reactive({
+        switch(input$test,
+               iu = results_FindN2_IU,
+               omnibus = results_FindN2_omni,
+               homgeneity = results_FindN2_homoge)
+    })
+    
+    # Filter dataset based on ICCs, n1, and threshold
+    filtered_data <- reactive({
+        filtered <- dataset() %>% filter(n1 == as.numeric(input$n1), 
+        rho0 == as.numeric(input$rho0),
+        rho1 == as.numeric(input$rho1),
+        rho2 == as.numeric(input$rho2),
+        pmp == as.numeric(input$pmp))
+    })
+    
+    # Filter effect sizes
+    second_filter <- reactive({
+        if (input$test == "iu") {
+            filtered <- filtered_data() %>% filter(eff_size1 == as.numeric(input$outcome1),
+            eff_size2 == as.numeric(input$outcome2))
+        } else if (input$test == "omnibus") {
+           filtered <- filtered_data() %>% filter(
+            eff_size1 == as.numeric(input$outcome1),
+            eff_size2 == as.numeric(input$outcome2)
+           )} else {
+            filtered <- filtered_data %>% filter(
+                eff_size1 == as.numeric(input$outcome1)
+            )
+           }
+        }
+    )
+
+    # Give format to table and render
+    output$tablePMP <- renderTable({
+        if (input$test == "iu") {
+            second_filter() %>% select(eta.PMP1, eta.PMP2, eta.PMP3, eta.PMP4) %>% rename(any_of(names_columns))
+        } else if (input$test == "omnibus") {
+            second_filter() %>% select(eta.PMP1, eta.PMP2, eta.PMP3, eta.PMP4) %>% rename(any_of(names_columns))
+        } else {
+            second_filter() %>% select(eta.PMP1, eta.PMP2) %>% rename(any_of(names_columns))
+        }},
+    # Make pretty table
+    striped = TRUE, spacing = "l", digits = 3, width = "90%"
+    )
+    # Make plot
+    
+    ## Select dataset and filter data
+    
+    output$distPlot <- renderPlot({
+        # generate bins based on input$bins from ui.R
+        x    <- faithful[, 2]
+        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+        
+        # draw the histogram with the specified number of bins
+        hist(x, breaks = bins, col = 'darkgray', border = 'white',
+             xlab = 'Waiting time to next eruption (in mins)',
+             main = 'Histogram of waiting times')
+    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
