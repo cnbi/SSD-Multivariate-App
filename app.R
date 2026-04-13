@@ -372,6 +372,47 @@ server <- function(input, output) {
     }
     
     
+    # Interpretation
+    output$interpretation <- renderUI({
+        if (input$test == "homogeneity"){
+            paragraphs <- list(
+                paste0("A cluster randomised trial with",
+                       dataset()$n1.final[1], " individuals per cluster and ", dataset()$sample_size[1], 
+                       " clusters per treatment condition yields a ", dataset()$eta.PMP1 * 100, "% of 
+                  posteriot model probabilties larger than ", input$bf_thresh, " when H1 is true. Whereas when the complement 
+                  hypothesis is true, ", dataset()$eta.PMP2 * 100, "% of 
+                  posteriot model probabilties are larger than ", input$bf_thresh, "."
+                ),
+                paste0("H1: Outcome1 - Outcome2 < Delta"),
+                paste0("Hc: Outcome1 - Outcome2 > Delta")
+            )
+        } else {
+            paragraphs <- list(
+                paste0("A cluster randomised trial with",
+                       dataset()$n1.final[1], " individuals per cluster and ", dataset()$sample_size[1], 
+                       " clusters per treatment condition yields a ", dataset()$eta.PMP1 * 100, "% of 
+                  posterior model probabilities larger than ", input$bf_thresh, " when H1 is true.  When H2 is true, ",
+                  dataset()$eta.PMP2 * 100, "% of posterior model probabilities are larger than ", input$bf_thresh, ". ",
+                  "When H3 is true, ", dataset()$eta.PMP3 * 100, "% of posterior model probabilities are larger than ",
+                  input$bf_thresh, ". Finally, when H4 is true, ", dataset()$eta.PMP3 * 100, 
+                  "% of posterior model probabilities are larger than ", input$bf_thresh, "."
+                  
+                ),
+                paste0("H1: Outcome1 > 0 & Outcome2 > 0"),
+                paste0("Outcome1 > 0 & Outcome2 < 0"),
+                paste0("Outcome1 < 0 & Outcome2 > 0"),
+                paste0("Outcome1 < 0 & Outcome2 < 0")
+            )
+        }
+        # Convert to HTML
+        paragraphs_html <- lapply(paragraphs, function(paragraph) {
+            paste0("<p>&#8226; ", paragraph, "</p>")})
+        
+        div(
+            style = "margin-left: 20px;",
+            lapply(paragraphs_html, HTML)
+        )
+    })
     
 
 }
