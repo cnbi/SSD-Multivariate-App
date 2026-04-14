@@ -9,6 +9,8 @@ library(ggplot2)
 library(ggpubr)
 library(shiny)
 library(shinythemes)
+# library(standby) # Loading
+library(shinycssloaders)
 
 
 # Load data sets
@@ -40,12 +42,12 @@ ui <- fluidPage(
                  sidebarLayout(
                      sidebarPanel(
                          selectInput("test",
-                                     "Type of test:",
+                                     "Type of test",
                                      choices = list("Intersection-union" = "iu",
                                                     "Omnibus" = "omnibus",
                                                     "Homogeneity of treatment effects" = "homogeneity")),
-                         sliderInput("n1",
-                                     "Clsuter size",
+                         selectInput("n1",
+                                     "Cluster size",
                                      choices = list("5" = 5, "15" = 15, "30" = 30)),
                          selectInput("rho0",
                                      "Outcome-specific ICC for outcome 1",
@@ -64,25 +66,25 @@ ui <- fluidPage(
                                      choices = list(0.9, 0.95)),
                          conditionalPanel(
                              condition = "input.test == 'iu'",
-                             sliderInput("outcome1",
+                             selectInput("outcome1",
                                          "Treatment effect in outcome 1",
                                          choices = list("0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7)
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.3'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.5'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.7" = 0.7, "0.9" = 0.9))
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.7'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.9" = 0.9))
                              ),
@@ -91,42 +93,42 @@ ui <- fluidPage(
                          ),
                          conditionalPanel(
                              condition = "input.test == 'omnibus'",
-                             sliderInput("outcome1",
+                             selectInput("outcome1",
                                          "Treatment effect in outcome 1", 
                                          choices = list("0.2" = 0.2, "0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7)
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.2'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.3" = 0.3, "0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.3'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.5" = 0.5, "0.7" = 0.7, "0.9" = 0.9))
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.5'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.7" = 0.7, "0.9" = 0.9))
                              ),
                              conditionalPanel(
                                  condition = "input.outcome1 == '0.7'",
-                                 selectInput(
+                                 selectInput("outcome2",
                                      "Treatment effect in outcome 2",
                                      choices = list("0.9" = 0.9))
                              )),
                          conditionalPanel(condition = "input.test == 'homogeneity'",
                                           radioButtons("outcome1",
-                                                       "Treatment effects (outcome 1 and outcome 2",
+                                                       "Treatment effects (outcome 1 and outcome 2)",
                                                        choices = list("0.3 and 0.2" = 0.3,
                                                                       "0.6 and 0.5" = 0.6,
                                                                       "0.9 and 0.8" = 0.9)),
                                           selectInput("delta", "Difference",
-                                                      choices = list("0.2" = 0.2, "0.3" = 0.3,))),
+                                                      choices = list("0.2" = 0.2, "0.3" = 0.3))),
                          
                          conditionalPanel(
                              condition = "input.test == 'iu'",
@@ -166,16 +168,21 @@ ui <- fluidPage(
                      ),
                      # Show a plot of the generated distribution
                      mainPanel(
-                         # Plot with PMP 
-                         plotOutput("distPlotPMP"),
+                         # Plot with PMP
+                         shinycssloaders::withSpinner(
+                             plotOutput("distPlotPMP"),
+                             type = 6),
                          # Tables
                          h3("Final Sample Size"),
                          ## Table with PMP
-                         tableOutput("tablePMP"),
+                         shinycssloaders::withSpinner(
+                             tableOutput("tablePMP"), type = 6),
                          # Plot with BF
-                         plotOutput("distPlotBF"),
+                         shinycssloaders::withSpinner(
+                             plotOutput("distPlotBF"), type = 6),
                          # Text
-                         uiOutput("interpretation")
+                         shinycssloaders::withSpinner(
+                             uiOutput("interpretation"), type = 6)
                      )
                      
                  ),
@@ -215,73 +222,59 @@ server <- function(input, output) {
     
     # Select dataset
     dataset <- eventReactive(input$go, {
+        req(input$go)
         dataset_tb <- switch(input$test,
                              iu = results_iu,
                              omnibus = results_omni,
-                             homgeneity = results_homog)
+                             homogeneity = results_homog)
         
         # Filter dataset based on ICCs, n1, and threshold
-        filtered_data <- dataset_tb() %>% filter(n1 == as.numeric(input$n1), 
-                                                 rho0 == as.numeric(input$rho0),
-                                                 rho1 == as.numeric(input$rho1),
-                                                 rho2 == as.numeric(input$rho2),
-                                                 pmp == as.numeric(input$pmp))
+        filtered_data <- dataset_tb %>% filter(n1 == as.numeric(input$n1), 
+                                               out_specific_ICC == as.numeric(input$rho0),
+                                               intersubj_between_outICC == as.numeric(input$rho1),
+                                               intrasubj_between_outICC == as.numeric(input$rho2),
+                                               eta == as.numeric(input$pmp))
         
         
         # Filter effect sizes and delta
-        second_filter <- reactive({
-            if (input$test == "iu") {
-                filtered <- filtered_data() %>% filter(eff_size1 == as.numeric(input$outcome1),
-                                                       eff_size2 == as.numeric(input$outcome2))
-            } else if (input$test == "omnibus") {
-                filtered <- filtered_data() %>% filter(
-                    eff_size1 == as.numeric(input$outcome1),
-                    eff_size2 == as.numeric(input$outcome2)
-                )} else {
-                    filtered <- filtered_data %>% filter(
-                        eff_size1 == as.numeric(input$outcome1),
-                        delta == as.numeric(input$delta)
-                    )
-                }
+        
+        if (input$test == "iu" | input$test == "omnibus") {
+            filtered_data <- filtered_data %>% filter(eff_size1 == as.numeric(input$outcome1),
+                                                      eff_size2 == as.numeric(input$outcome2))
+        } else {
+            filtered_data <- filtered_data %>% filter(
+                eff_size1 == as.numeric(input$outcome1),
+                delta == as.numeric(input$delta)
+            )
         }
-        )
-        return(second_filter)
+        return(filtered_data)
     })
     
     # Give format to table and render
     hypotheses <- c("H1", "H2", "H3", "H4")
-    
+    browser()
     output$tablePMP <- renderTable({
-        if (input$test == "iu") {
-            data1 <- dataset() %>% 
-                select(all_of(c("eta.PMP1", "eta.PMP2", "eta.PMP3", "eta.PMP4"))) %>% 
+        req(input$go, dataset())
+        data_set <- dataset()
+        if (input$test == "iu" | input$test == "omnibus") {
+            data1 <- data_set %>% 
+                dplyr::select("eta.PMP1", "eta.PMP2", "eta.PMP3", "eta.PMP4") %>% 
                 pivot_longer(cols = everything(),
                              values_to = "P(PMP.H > threshold)") %>% 
                 mutate(Hypothesis = hypotheses, .before = 1)
-            data2 <- dataset() %>% 
-                select(all_of(c("mean.PMP1", "mean.PMP2", "mean.PMP3", "mean.PMP4"))) %>% 
-                pivot_longer(cols = everything(), values_to = "Error") %>% 
-                mutate(Error = 1 - Error)
-            bind_cols(data1, data2)
-        } else if (input$test == "omnibus") {
-            data1 <- dataset() %>% 
-                select(all_of(c("eta.PMP1", "eta.PMP2", "eta.PMP3", "eta.PMP4"))) %>% 
-                pivot_longer(cols = everything(),
-                             values_to = "P(PMP.H > threshold)") %>% 
-                mutate(Hypothesis = hypotheses, .before = 1)
-            data2 <- dataset() %>% 
-                select(all_of(c("mean.PMP1", "mean.PMP2", "mean.PMP3", "mean.PMP4"))) %>% 
+            data2 <- data_set %>% 
+                dplyr::select("mean.PMP1", "mean.PMP2", "mean.PMP3", "mean.PMP4") %>% 
                 pivot_longer(cols = everything(), values_to = "Error") %>% 
                 mutate(Error = 1 - Error)
             bind_cols(data1, data2)
         } else {
-            data1 <- dataset() %>% 
-                select(all_of(c("eta.PMP1", "eta.PMP2"))) %>% 
+            data1 <- data_set %>% 
+                dplyr::select("eta.PMP1", "eta.PMP2") %>% 
                 pivot_longer(cols = everything(),
                              values_to = "P(PMP.H > threshold)") %>% 
                 mutate(Hypothesis = hypotheses[1:2], .before = 1)
-            data2 <- dataset() %>% 
-                select(all_of(c("mean.PMP1", "mean.PMP2"))) %>% 
+            data2 <- data_set %>% 
+                dplyr::select("mean.PMP1", "mean.PMP2") %>% 
                 pivot_longer(cols = everything(), values_to = "Error") %>% 
                 mutate(Error = 1 - Error)
             bind_cols(data1, data2)
@@ -297,52 +290,48 @@ server <- function(input, output) {
     # Make plot
     ## Select dataset and filter data
     dataset_pl <- eventReactive(input$go, {
+        req(input$go)
         dataset_ <- switch(input$test,
                            iu = results_iu_plot,
                            omnibus = results_omni_plot,
                            homgeneity = results_homog_plot)
         
         # Filter dataset based on ICCs, n1, and threshold
-        filtered_data <- dataset_() %>% filter(n1 == as.numeric(input$n1), 
-                                               rho0 == as.numeric(input$rho0),
-                                               rho1 == as.numeric(input$rho1),
-                                               rho2 == as.numeric(input$rho2),
-                                               pmp == as.numeric(input$pmp))
+        filtered_data <- dataset_ %>% filter(n1 == as.numeric(input$n1), 
+                                             out_specific_ICC == as.numeric(input$rho0),
+                                             intersubj_between_outICC == as.numeric(input$rho1),
+                                             intrasubj_between_outICC == as.numeric(input$rho2),
+                                             eta == as.numeric(input$pmp))
         
         
         # Filter effect sizes and delta
-        second_filter <- reactive({
-            if (input$test == "iu") {
-                filtered <- filtered_data() %>% filter(eff_size1 == as.numeric(input$outcome1),
-                                                       eff_size2 == as.numeric(input$outcome2))
-            } else if (input$test == "omnibus") {
-                filtered <- filtered_data() %>% filter(
-                    eff_size1 == as.numeric(input$outcome1),
-                    eff_size2 == as.numeric(input$outcome2)
-                )} else {
-                    filtered <- filtered_data %>% filter(
-                        eff_size1 == as.numeric(input$outcome1),
-                        delta == as.numeric(input$delta)
-                    )
-                }
+        
+        if (input$test == "iu" | input$test == "omnibus") {
+            filtered <- filtered_data %>% filter(eff_size1 == as.numeric(input$outcome1),
+                                                 eff_size2 == as.numeric(input$outcome2))
+        } else {
+            filtered <- filtered_data %>% filter(
+                eff_size1 == as.numeric(input$outcome1),
+                delta == as.numeric(input$delta)
+            )
         }
-        )
-        reactive_data_plot <- reactive({
-            data_plot_filt <- second_filter %>% filter(hypothesis %in% input$hypothesis)
-            data_plot_filt
-        })
-        return(reactive_data_plot)
+        return(filtered)
     })
     
+    reactive_data_plot <- reactive({
+        req(dataset_pl())
+        dataset_pl() %>% filter(hypothesis %in% input$hypothesis)
+    })
     # Make 
     output$distPlotPMP <- renderPlot({
+        req(input$go, reactive_data_plot())
         # Draw plot PMP
-        plot_pmp <- ggplot(dataset_pl(), aes(x = PMP, color = as.factor(hypothesis), fill = as.factor(hypothesis))) + 
+        ggplot(reactive_data_plot(), aes(x = PMP, color = as.factor(hypothesis), fill = as.factor(hypothesis))) + 
             geom_histogram(binwidth = 1, aes(y = after_stat(density)), alpha = 0.5, position = "identity") +
             geom_density(alpha = .2) +
-            geom_vline(aes(xintercept = log(pmp_thresh), colour = cbbPalette[9]), linetype = "dashed") +
-            scale_fill_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8]), name = "Hypothesis") +
-            scale_color_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8]), name = "Hypothesis") +
+            geom_vline(aes(xintercept = pmp_thresh, colour = cbbPalette[9]), linetype = "dashed") +
+            scale_fill_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8], "4" = cbbPalette[4]), name = "Hypothesis") +
+            scale_color_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8], "4" = cbbPalette[4]), name = "Hypothesis") +
             ylab("Density") + xlab("Posterior Model Probability") +
             theme(legend.position = "bottom", axis.title = element_text(size = 16),
                   axis.text = element_text(size = 15),
@@ -352,16 +341,16 @@ server <- function(input, output) {
         
     })
     
-    if (input$incl_bayes == TRUE) {
+    
     output$distPlotBF <- renderPlot({
+        req(input$go, input$incl_bayes, reactive_data_plot())
         # Draw plot BF
-        
-        plot_BF <- ggplot(dataset_pl(), aes(x = log(BF), color = as.factor(hypothesis), fill = as.factor(hypothesis))) + 
+        ggplot(reactive_data_plot(), aes(x = log(BF), color = as.factor(hypothesis), fill = as.factor(hypothesis))) + 
             geom_histogram(binwidth = 1, aes(y = after_stat(density)), alpha = 0.5, position = "identity") +
             geom_density(alpha = .2) +
-            geom_vline(aes(xintercept = log(pmp_thresh), colour = cbbPalette[9]), linetype = "dashed") +
-            scale_fill_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8]), name = "Hypothesis") +
-            scale_color_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8]), name = "Hypothesis") +
+            geom_vline(aes(xintercept = 1, colour = cbbPalette[9]), linetype = "dashed") +
+            scale_fill_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8], "4" = cbbPalette[4]), name = "Hypothesis") +
+            scale_color_manual(values = c("1" = cbbPalette[2], "2" = cbbPalette[3], "3" = cbbPalette[8], "4" = cbbPalette[4]), name = "Hypothesis") +
             ylab("Density") + xlab(bquote("log Bayes factor"["mu"])) +
             theme(legend.position = "bottom", axis.title = element_text(size = 16),
                   axis.text = element_text(size = 15),
@@ -369,18 +358,19 @@ server <- function(input, output) {
                   plot.title = element_text(size = 14, face = "bold")) + 
             labs(title = "Bayes factor favouring true hypothesis")
     })
-    }
     
     
     # Interpretation
     output$interpretation <- renderUI({
-        if (input$test == "homogeneity"){
+        req(input$go, dataset())
+        data_ <- dataset()
+        if (input$test == "homogeneity") {
             paragraphs <- list(
                 paste0("A cluster randomised trial with",
-                       dataset()$n1.final[1], " individuals per cluster and ", dataset()$sample_size[1], 
-                       " clusters per treatment condition yields a ", dataset()$eta.PMP1 * 100, "% of 
+                       data_$n1.final, " individuals per cluster and ", data_$n2.final, 
+                       " clusters per treatment condition yields a ", data_$eta.PMP1 * 100, "% of 
                   posteriot model probabilties larger than ", input$bf_thresh, " when H1 is true. Whereas when the complement 
-                  hypothesis is true, ", dataset()$eta.PMP2 * 100, "% of 
+                  hypothesis is true, ", data_$eta.PMP2 * 100, "% of 
                   posteriot model probabilties are larger than ", input$bf_thresh, "."
                 ),
                 paste0("H1: Outcome1 - Outcome2 < Delta"),
@@ -389,14 +379,14 @@ server <- function(input, output) {
         } else {
             paragraphs <- list(
                 paste0("A cluster randomised trial with",
-                       dataset()$n1.final[1], " individuals per cluster and ", dataset()$sample_size[1], 
-                       " clusters per treatment condition yields a ", dataset()$eta.PMP1 * 100, "% of 
+                       data_$n1.final, " individuals per cluster and ", data_$n2.final, 
+                       " clusters per treatment condition yields a ", data_$eta.PMP1 * 100, "% of 
                   posterior model probabilities larger than ", input$bf_thresh, " when H1 is true.  When H2 is true, ",
-                  dataset()$eta.PMP2 * 100, "% of posterior model probabilities are larger than ", input$bf_thresh, ". ",
-                  "When H3 is true, ", dataset()$eta.PMP3 * 100, "% of posterior model probabilities are larger than ",
-                  input$bf_thresh, ". Finally, when H4 is true, ", dataset()$eta.PMP3 * 100, 
-                  "% of posterior model probabilities are larger than ", input$bf_thresh, "."
-                  
+                       data_$eta.PMP2 * 100, "% of posterior model probabilities are larger than ", input$bf_thresh, ". ",
+                       "When H3 is true, ", data_$eta.PMP3 * 100, "% of posterior model probabilities are larger than ",
+                       input$bf_thresh, ". Finally, when H4 is true, ", data_$eta.PMP3 * 100, 
+                       "% of posterior model probabilities are larger than ", input$bf_thresh, "."
+                       
                 ),
                 paste0("H1: Outcome1 > 0 & Outcome2 > 0"),
                 paste0("Outcome1 > 0 & Outcome2 < 0"),
@@ -414,7 +404,7 @@ server <- function(input, output) {
         )
     })
     
-
+    
 }
 
 # Run the application 
