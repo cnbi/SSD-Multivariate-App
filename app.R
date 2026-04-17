@@ -409,13 +409,15 @@ server <- function(input, output) {
         list_style <- "list-style-type: none; padding-left: 0; font-weight: bold; color: #34495e;"
         
         if (input$test == "homogeneity") {
-            paragraphs <- paste0("A cluster randomised trial with", data_$n1.final,
+            paragraphs <- paste0("For a cluster randomised trial with ", data_$n1.final,
                                  " individuals per cluster and ", data_$n2.final, 
-                                 " clusters per treatment condition yields a ", round(data_$eta.PMP1 * 100, 3),
-                                 "% of posterior model probabilties larger than ", as.numeric(input$pmp_thres) * 100,
-                                 "% when H1 is true. Whereas when the complement hypothesis is true, ",
-                                 round(data_$eta.PMP2 * 100, 3), "% of posterior model probabilties are larger than ",
-                                 as.numeric(input$pmp_thres) * 100, "%."
+                                 " clusters, under H1, ", round(data_$eta.PMP1 * 100, 3),
+                                 "% of posterior model probabilties are larger than the threshold (", as.numeric(input$pmp_thres) * 100,
+                                 "%). Under this hypothesis, the probability of comitting an error
+                                 is ", round((1 - data_$mean.PMP1) * 100, 3),"%.  Whereas when the complement hypothesis is true, ",
+                                 round(data_$eta.PMP2 * 100, 3), "% of posterior model probabilties are larger than the threshold,
+                                 and the average error is ",
+                                 round((1 - data_$mean.PMP2), 3) , "."
             )
             hypo_list <- list(
                 "H1: Outcome1 - Outcome2 < Delta",
@@ -423,15 +425,18 @@ server <- function(input, output) {
         } else {
             paragraphs <- paste0("A cluster randomised trial with ", data_$n1.final,
                                  " individuals per cluster and ", data_$n2.final, 
-                                 " clusters per treatment condition yields a ", round(data_$eta.PMP1 * 100, 3),
-                                 "% of posterior model probabilities larger than ", as.numeric(input$pmp_thres) * 100,
-                                 "% when H1 is true.  When H2 is true, ", round(data_$eta.PMP2 * 100, 3),
-                                 "% of posterior model probabilities are larger than the threshold. ",
-                                 "When H3 is true, ", round(data_$eta.PMP3 * 100, 3),
-                                 "% of posterior model probabilities are larger than 
-                       the threshold . Finally, when H4 is true, ", round(data_$eta.PMP3 * 100, 3), 
-                                 "% of posterior model probabilities are larger than ",
-                                 as.numeric(input$pmp_thres) * 100, "%."
+                                 " clusters yields the following results relative to a threshold of ",
+                                 as.numeric(input$pmp_thres) * 100,"%. When H1 is true, ", round(data_$eta.PMP1 * 100, 3),
+                                 "% of posterior model probabilities (PMPs) are larger than the threshold, and the average error
+                                 probabiltiy is ", round((1 - data_$mean.PMP1) * 100, 3), "%. For H2, ", round(data_$eta.PMP2 * 100, 3),
+                                 "% of PMPs exceed the threshold, and the average error is ", 
+                                 round((1 - data_$mean.PMP2), 3), ". Similarly, under H3, the
+                                 threshold is exceeded for ", round(data_$eta.PMP3 * 100, 3),
+                                 "% of PMPs, and the average error associated to this hypothesis is ",
+                                 round((1 - data_$mean.PMP3), 3),
+                                 ". Finally, if H4 is true, ", round(data_$eta.PMP4 * 100, 3), 
+                                 "% of PMPs are larger than the threshold, and the probability of commmiting an error 
+                                 is ", round((1 - data_$mean.PMP4) * 100, 3), "%"
                                  
             )
             hypo_list <- list(
