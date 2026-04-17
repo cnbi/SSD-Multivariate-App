@@ -1,0 +1,13 @@
+name: SSD-Multivariate-App
+title: SSD-Multivariate-App
+username: cnbi
+account: cnbi
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17163331
+bundleId: 11866905
+url: https://cnbi.shinyapps.io/SSD-Multivariate-App/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md
