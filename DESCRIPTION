@@ -1,0 +1,11 @@
+Package: SSD-Multivariate-App
+Title: SampleSizeMultivariateCRT
+Version: 0.0.0.9000
+Authors@R: 
+    person("Camila Natalia Barragan Ibañez", , , "cn.barragan.ibanez@gmail.com", role = c("aut", "cre"))
+Description: Sample size determination for testing multiple outcomes in cluster randomised trials.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Language: en
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

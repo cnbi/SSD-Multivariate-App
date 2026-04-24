@@ -1,6 +1,6 @@
 # SSD-Multivariate-CRT-App
 
-This Shiny app for sample size determination for testing multiple outcomes: intersection-union test, omnibus test, and homogeneity of treatment effects test. The results displayed come from the simulation study Methodology for Sample Size Determination for Testing Multiple Outcomes in Cluster randomized Trials by Barragan and Moerbeek (2026).
+This Shiny app for sample size determination for testing multiple outcomes in cluster randomised trials: intersection-union test, omnibus test, and homogeneity of treatment effects test. The results displayed come from the simulation study Methodology for Sample Size Determination for Testing Multiple Outcomes in Cluster randomized Trials by Barragan and Moerbeek (2026).
 
 # Project
 
